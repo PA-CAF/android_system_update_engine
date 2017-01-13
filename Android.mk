@@ -235,6 +235,41 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_SRC_FILES := $(ue_libpayload_consumer_src_files)
 include $(BUILD_STATIC_LIBRARY)
 
+# libupdate_engine_boot_control (type: static_library)
+# ========================================================
+# A BootControl class implementation using Android's HIDL boot_control HAL.
+ue_libupdate_engine_boot_control_exported_static_libraries := \
+    update_metadata-protos \
+    $(ue_update_metadata_protos_exported_static_libraries)
+
+ue_libupdate_engine_boot_control_exported_shared_libraries := \
+    libhwbinder \
+    libhidlbase \
+    libutils \
+    android.hardware.boot@1.0 \
+    $(ue_update_metadata_protos_exported_shared_libraries)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libupdate_engine_boot_control
+LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CLANG := true
+LOCAL_CFLAGS := $(ue_common_cflags)
+LOCAL_CPPFLAGS := $(ue_common_cppflags)
+LOCAL_LDFLAGS := $(ue_common_ldflags)
+LOCAL_C_INCLUDES := \
+    $(ue_common_c_includes) \
+    bootable/recovery
+LOCAL_STATIC_LIBRARIES := \
+    $(ue_common_static_libraries) \
+    $(ue_libupdate_engine_boot_control_exported_static_libraries)
+LOCAL_SHARED_LIBRARIES := \
+    $(ue_common_shared_libraries) \
+    $(ue_libupdate_engine_boot_control_exported_shared_libraries)
+LOCAL_SRC_FILES := \
+    boot_control_android.cc
+include $(BUILD_STATIC_LIBRARY)
+
 ifeq ($(local_use_omaha),1)
 
 # libupdate_engine (type: static_library)
@@ -250,17 +285,19 @@ ue_libupdate_engine_exported_static_libraries := \
     libbz \
     libfs_mgr \
     $(ue_libpayload_consumer_exported_static_libraries) \
-    $(ue_update_metadata_protos_exported_static_libraries)
+    $(ue_update_metadata_protos_exported_static_libraries) \
+    libupdate_engine_boot_control \
+    $(ue_libupdate_engine_boot_control_exported_static_libraries)
 ue_libupdate_engine_exported_shared_libraries := \
     libmetrics \
     libexpat \
     libbrillo-policy \
-    libhardware \
     libcurl \
     libcutils \
     libssl \
     $(ue_libpayload_consumer_exported_shared_libraries) \
-    $(ue_update_metadata_protos_exported_shared_libraries)
+    $(ue_update_metadata_protos_exported_shared_libraries) \
+    $(ue_libupdate_engine_boot_control_exported_shared_libraries)
 ifeq ($(local_use_dbus),1)
 ue_libupdate_engine_exported_static_libraries += \
     update_engine-dbus-adaptor \
@@ -315,7 +352,6 @@ LOCAL_SHARED_LIBRARIES := \
     $(ue_libpayload_consumer_exported_shared_libraries:-host=) \
     $(ue_update_metadata_protos_exported_shared_libraries)
 LOCAL_SRC_FILES := \
-    boot_control_android.cc \
     certificate_checker.cc \
     common_service.cc \
     connection_utils.cc \
@@ -397,16 +433,18 @@ endif  # local_use_binder == 1
 ue_libupdate_engine_android_exported_static_libraries := \
     libpayload_consumer \
     libfs_mgr \
-    $(ue_libpayload_consumer_exported_static_libraries)
+    $(ue_libpayload_consumer_exported_static_libraries) \
+    libupdate_engine_boot_control \
+    $(ue_libupdate_engine_boot_control_exported_static_libraries)
 ue_libupdate_engine_android_exported_shared_libraries := \
     $(ue_libpayload_consumer_exported_shared_libraries) \
+    $(ue_libupdate_engine_boot_control_exported_shared_libraries) \
     libandroid \
     libbinder \
     libbinderwrapper \
     libbrillo-binder \
     libcutils \
     libcurl \
-    libhardware \
     libssl \
     libutils
 
@@ -436,7 +474,6 @@ LOCAL_SRC_FILES += \
     binder_bindings/android/os/IUpdateEngine.aidl \
     binder_bindings/android/os/IUpdateEngineCallback.aidl \
     binder_service_android.cc \
-    boot_control_android.cc \
     certificate_checker.cc \
     daemon.cc \
     daemon_state_android.cc \
@@ -522,7 +559,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_C_INCLUDES += \
     external/cros/system_api/dbus
 LOCAL_SRC_FILES := \
-    boot_control_android.cc \
+    boot_control_recovery.cc \
     hardware_android.cc \
     network_selector_stub.cc \
     proxy_resolver.cc \
@@ -549,14 +586,6 @@ LOCAL_STATIC_LIBRARIES += \
     libevent \
     libmodpb64 \
     libgtest_prod
-# libchrome requires these extra LDFLAGS which are not propagated through the
-# build system.
-LOCAL_LDFLAGS += \
-    -Wl,-wrap,calloc \
-    -Wl,-wrap,free \
-    -Wl,-wrap,malloc \
-    -Wl,-wrap,memalign \
-    -Wl,-wrap,realloc
 
 ifeq ($(strip $(PRODUCT_STATIC_BOOT_CONTROL_HAL)),)
 # No static boot_control HAL defined, so no sideload support. We use a fake
@@ -696,6 +725,7 @@ ue_libpayload_generator_src_files := \
     payload_generator/graph_types.cc \
     payload_generator/graph_utils.cc \
     payload_generator/inplace_generator.cc \
+    payload_generator/mapfile_filesystem.cc \
     payload_generator/payload_file.cc \
     payload_generator/payload_generation_config.cc \
     payload_generator/payload_signer.cc \
@@ -1026,6 +1056,7 @@ LOCAL_SRC_FILES := \
     payload_generator/full_update_generator_unittest.cc \
     payload_generator/graph_utils_unittest.cc \
     payload_generator/inplace_generator_unittest.cc \
+    payload_generator/mapfile_filesystem_unittest.cc \
     payload_generator/payload_file_unittest.cc \
     payload_generator/payload_generation_config_unittest.cc \
     payload_generator/payload_signer_unittest.cc \

@@ -115,19 +115,9 @@ size_t RemoveIdenticalBlockRanges(vector<Extent>* src_extents,
   size_t src_idx = 0;
   size_t dst_idx = 0;
   uint64_t src_offset = 0, dst_offset = 0;
-  bool new_src = true, new_dst = true;
   size_t removed_bytes = 0, nonfull_block_bytes;
   bool do_remove = false;
   while (src_idx < src_extents->size() && dst_idx < dst_extents->size()) {
-    if (new_src) {
-      src_offset = 0;
-      new_src = false;
-    }
-    if (new_dst) {
-      dst_offset = 0;
-      new_dst = false;
-    }
-
     do_remove = ((*src_extents)[src_idx].start_block() + src_offset ==
                  (*dst_extents)[dst_idx].start_block() + dst_offset);
 
@@ -140,10 +130,17 @@ size_t RemoveIdenticalBlockRanges(vector<Extent>* src_extents,
     src_offset += min_num_blocks;
     dst_offset += min_num_blocks;
 
-    new_src = ProcessExtentBlockRange(src_extents, &src_idx, do_remove,
-                                      prev_src_offset, src_offset);
-    new_dst = ProcessExtentBlockRange(dst_extents, &dst_idx, do_remove,
-                                      prev_dst_offset, dst_offset);
+    bool new_src = ProcessExtentBlockRange(src_extents, &src_idx, do_remove,
+                                           prev_src_offset, src_offset);
+    bool new_dst = ProcessExtentBlockRange(dst_extents, &dst_idx, do_remove,
+                                           prev_dst_offset, dst_offset);
+    if (new_src) {
+      src_offset = 0;
+    }
+    if (new_dst) {
+      dst_offset = 0;
+    }
+
     if (do_remove)
       removed_bytes += min_num_blocks * kBlockSize;
   }
@@ -802,32 +799,6 @@ bool IsExtFilesystem(const string& device) {
   TEST_AND_RETURN_FALSE(log_block_size >= EXT2_MIN_BLOCK_LOG_SIZE &&
                         log_block_size <= EXT2_MAX_BLOCK_LOG_SIZE);
   TEST_AND_RETURN_FALSE(block_count > 0);
-  return true;
-}
-
-bool IsSquashfs4Filesystem(const string& device) {
-  brillo::Blob header;
-  // See fs/squashfs/squashfs_fs.h for format details. We only support
-  // Squashfs 4.x little endian.
-
-  // The first 96 is enough to read the squashfs superblock.
-  const ssize_t kSquashfsSuperBlockSize = 96;
-  if (!utils::ReadFileChunk(device, 0, kSquashfsSuperBlockSize, &header) ||
-      header.size() < kSquashfsSuperBlockSize)
-    return false;
-
-  // Check magic, squashfs_fs.h: SQUASHFS_MAGIC
-  if (memcmp(header.data(), "hsqs", 4) != 0)
-    return false;  // Only little endian is supported.
-
-  // squashfs_fs.h: struct squashfs_super_block.s_major
-  uint16_t s_major = *reinterpret_cast<const uint16_t*>(
-      header.data() + 5 * sizeof(uint32_t) + 4 * sizeof(uint16_t));
-
-  if (s_major != 4) {
-    LOG(ERROR) << "Found unsupported squashfs major version " << s_major;
-    return false;
-  }
   return true;
 }
 
